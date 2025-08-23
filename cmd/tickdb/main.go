@@ -4,6 +4,7 @@ import (
 	"log"
 	"net"
 
+	ingestpipeline "github.com/heyyakash/tickdb/internal/ingest-pipeline"
 	"github.com/heyyakash/tickdb/internal/server"
 	"github.com/heyyakash/tickdb/internal/wal"
 	ingestpb "github.com/heyyakash/tickdb/proto/gen/ingest"
@@ -19,9 +20,12 @@ func main() {
 		log.Fatalf("Could't create WAL : %v", err.Error())
 	}
 
+	//setup pipeline service
+	pipelineService := ingestpipeline.NewPipeline(wal)
+
 	// setup grpc server
 	grpc_server := grpc.NewServer()
-	ingestpb.RegisterInjestServiceServer(grpc_server, server.NewInjestServer(wal))
+	ingestpb.RegisterInjestServiceServer(grpc_server, server.NewInjestServer(pipelineService))
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {

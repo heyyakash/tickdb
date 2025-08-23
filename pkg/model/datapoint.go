@@ -1,8 +1,8 @@
 package model
 
 type DataPoint struct {
-	Measurement       string
-	TimestampUnixNano int64
-	Tags              map[string]string
-	Values            map[string]float64
+	Measurement       string             `json:"measurement"`
+	TimestampUnixNano int64              `json:"timestamp_unix_nano"`
+	Tags              map[string]string  `json:"tags"`
+	Values            map[string]float64 `json:"values"`
 }

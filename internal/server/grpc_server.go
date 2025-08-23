@@ -4,17 +4,17 @@ import (
 	"context"
 	"log"
 
-	wal "github.com/heyyakash/tickdb/internal/wal"
+	ingestpipeline "github.com/heyyakash/tickdb/internal/ingest-pipeline"
 	ingestpb "github.com/heyyakash/tickdb/proto/gen/ingest"
 )
 
 type IngestService struct {
 	ingestpb.UnimplementedInjestServiceServer
-	wal *wal.WAL
+	pipelineService *ingestpipeline.PipelineService
 }
 
-func NewInjestServer(w *wal.WAL) *IngestService {
-	return &IngestService{wal: w}
+func NewInjestServer(p *ingestpipeline.PipelineService) *IngestService {
+	return &IngestService{pipelineService: p}
 }
 
 // Handle Single Data Points
@@ -23,9 +23,9 @@ func (i *IngestService) Write(ctx context.Context, req *ingestpb.WriteRequest) (
 		return &ingestpb.WriteResponse{Rejected: 1, Error: "no measurement provided", Accepted: 0}, nil
 	}
 
-	err := i.wal.Append(req.GetPoint())
+	err := i.pipelineService.AddDataPoint(req.GetPoint())
 	if err != nil {
-		log.Printf("WAL append error : %v", err)
+		log.Printf("Pipeline error : %v", err)
 		return &ingestpb.WriteResponse{Rejected: 1, Error: err.Error(), Accepted: 0}, err
 	}
 
@@ -40,7 +40,7 @@ func (i *IngestService) BatchWrite(ctx context.Context, req *ingestpb.BatchWrite
 		if point == nil {
 			rejected += 1
 		}
-		if err := i.wal.Append(point); err != nil {
+		if err := i.pipelineService.AddDataPoint(point); err != nil {
 			rejected += 1
 		} else {
 			accepted += 1
