@@ -52,3 +52,7 @@ func (p *PipelineService) AddDataPoint(point *ingestpb.Point) error {
 		return errors.New("Pipeline chanel is full")
 	}
 }
+
+func (p *PipelineService) Close() {
+	p.cancel()
+}
