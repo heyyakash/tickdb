@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	ingestpipeline "github.com/heyyakash/tickdb/internal/ingest-pipeline"
+	memtable "github.com/heyyakash/tickdb/internal/mem-table"
 	"github.com/heyyakash/tickdb/internal/server"
 	"github.com/heyyakash/tickdb/internal/wal"
 	ingestpb "github.com/heyyakash/tickdb/proto/gen/ingest"
@@ -30,8 +31,12 @@ func main() {
 		log.Fatalf("Could't create WAL : %v", err.Error())
 	}
 
+	//setup memTable service
+	MemTable := make(map[string][]*ingestpb.Point)
+	MemTableService := memtable.NewMemTableService(MemTable)
+
 	//setup pipeline service
-	pipelineService := ingestpipeline.NewPipeline(wal)
+	pipelineService := ingestpipeline.NewPipeline(wal, MemTableService)
 
 	// setup grpc server
 	grpc_server := grpc.NewServer()
