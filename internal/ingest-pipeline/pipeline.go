@@ -32,6 +32,15 @@ func NewPipeline(w *wal.WAL, m *memtable.MemTableService) *PipelineService {
 	return p
 }
 
+func (p *PipelineService) WALReplay() {
+	points := p.wal.Replay()
+	for _, point := range points {
+		p.memtableSerivice.AddToMemTable(point)
+	}
+	log.Printf("WAL Replay success!!")
+	p.memtableSerivice.LogMemTable()
+}
+
 func (p *PipelineService) ProcessDataPoint() {
 	for {
 		select {

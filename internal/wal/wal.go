@@ -1,9 +1,13 @@
 package wal
 
 import (
+	"bufio"
 	"encoding/json"
+	"log"
 	"os"
 	"sync"
+
+	ingestpb "github.com/heyyakash/tickdb/proto/gen/ingest"
 )
 
 type WAL struct {
@@ -35,6 +39,31 @@ func (w *WAL) Append(record any) error {
 	}
 
 	return w.file.Sync()
+}
+
+func (w *WAL) Replay() []*ingestpb.Point {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	f, err := os.Open(w.file.Name())
+	if err != nil {
+		log.Fatalf("Unable to open file for wal replay")
+	}
+	defer f.Close()
+
+	points := []*ingestpb.Point{}
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		var p ingestpb.Point
+		if err := json.Unmarshal([]byte(line), &p); err != nil {
+			log.Fatalf("Couldn't unmarhsal line to valid json")
+		}
+		points = append(points, &p)
+	}
+
+	return points
 }
 
 func (w *WAL) Close() error {

@@ -21,25 +21,28 @@ import (
 
 var port = "50051"
 
-func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-	defer stop()
-
-	log.Println("Starting TickDB")
+func initWAL() *wal.WAL {
 	wal, err := wal.New("wal.log")
 	if err != nil {
 		log.Fatalf("Could't create WAL : %v", err.Error())
 	}
+	return wal
+}
 
-	//setup memTable service
+func initalizeMemTable() *memtable.MemTableService {
 	MemTable := make(map[string][]*ingestpb.Point)
 	MemTableService := memtable.NewMemTableService(MemTable)
+	return MemTableService
+}
 
-	//setup pipeline service
+func initPipelineService(wal *wal.WAL, MemTableService *memtable.MemTableService) *ingestpipeline.PipelineService {
 	pipelineService := ingestpipeline.NewPipeline(wal, MemTableService)
+	pipelineService.WALReplay()
+	return pipelineService
+}
 
-	// setup grpc server
-	grpc_server := grpc.NewServer()
+func initGRPCServer(pipelineService *ingestpipeline.PipelineService, grpc_server *grpc.Server) {
+	grpc_server = grpc.NewServer()
 	ingestpb.RegisterInjestServiceServer(grpc_server, server.NewInjestServer(pipelineService))
 
 	lis, err := net.Listen("tcp", ":"+port)
@@ -54,14 +57,16 @@ func main() {
 			log.Fatalf("grpc couldn't listen to port %s : %v", port, err.Error())
 		}
 	}()
+}
 
+func initRestServer(pipelineService *ingestpipeline.PipelineService, httpServer *http.Server) {
 	r := gin.Default()
 	ingestRestService := server.NewIngestRestServer(pipelineService)
 
 	// register rest handlers for ingesting data
 	ingestRestService.SetupHandlers(r)
 
-	httpServer := &http.Server{
+	httpServer = &http.Server{
 		Addr:    ":8020",
 		Handler: r.Handler(),
 	}
@@ -72,6 +77,30 @@ func main() {
 			log.Fatalf("Could'nt start rest api server : %v", err.Error())
 		}
 	}()
+}
+
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+
+	log.Println("Starting TickDB")
+
+	//setup wal
+	wal := initWAL()
+
+	//setup memTable service
+	memtableService := initalizeMemTable()
+
+	//setup pipeline service
+	pipelineService := initPipelineService(wal, memtableService)
+
+	// setup grpc server
+	var grpc_server *grpc.Server
+	initGRPCServer(pipelineService, grpc_server)
+
+	// setup rest server
+	var httpServer *http.Server
+	initRestServer(pipelineService, httpServer)
 
 	<-ctx.Done()
 	log.Println("Signal to Shutdown received! Shutting down gracefully...")
