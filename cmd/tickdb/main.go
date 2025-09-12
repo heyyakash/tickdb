@@ -14,6 +14,7 @@ import (
 	ingestpipeline "github.com/heyyakash/tickdb/internal/ingest-pipeline"
 	memtable "github.com/heyyakash/tickdb/internal/mem-table"
 	"github.com/heyyakash/tickdb/internal/server"
+	"github.com/heyyakash/tickdb/internal/sstable"
 	"github.com/heyyakash/tickdb/internal/wal"
 	ingestpb "github.com/heyyakash/tickdb/proto/gen/ingest"
 	"google.golang.org/grpc"
@@ -35,10 +36,15 @@ func initalizeMemTable() *memtable.MemTableService {
 	return MemTableService
 }
 
-func initPipelineService(wal *wal.WAL, MemTableService *memtable.MemTableService) *ingestpipeline.PipelineService {
-	pipelineService := ingestpipeline.NewPipeline(wal, MemTableService)
+func initPipelineService(wal *wal.WAL, MemTableService *memtable.MemTableService, sst *sstable.SSTableService) *ingestpipeline.PipelineService {
+	pipelineService := ingestpipeline.NewPipeline(wal, MemTableService, sst)
 	pipelineService.WALReplay()
 	return pipelineService
+}
+
+func initSSTableService(MemtableService *memtable.MemTableService) *sstable.SSTableService {
+	SstableService := sstable.NewSSTableService(MemtableService)
+	return SstableService
 }
 
 func main() {
@@ -53,8 +59,11 @@ func main() {
 	//setup memTable service
 	memtableService := initalizeMemTable()
 
+	//setup SSTable service
+	sstableService := initSSTableService(memtableService)
+
 	//setup pipeline service
-	pipelineService := initPipelineService(wal, memtableService)
+	pipelineService := initPipelineService(wal, memtableService, sstableService)
 
 	// setup grpc server
 	grpc_server := grpc.NewServer()

@@ -60,5 +60,8 @@ func (i *IngestRestService) handleBatchDataPoints(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, ingestpb.WriteResponse{Accepted: uint64(accepted), Rejected: uint64(rejected)})
-	return
+}
+
+func (i *IngestRestService) GetDataPoints(ctx *gin.Context) {
+
 }
