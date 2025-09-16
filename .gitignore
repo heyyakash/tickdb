@@ -17,8 +17,11 @@ coverage.*
 *.coverprofile
 profile.cov
 
+
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+sstable/
 
 # Go workspace file
 go.work
@@ -29,6 +32,7 @@ go.work.sum
 
 #logs
 *.log
+*.sst
 # Editor/IDE
 # .idea/
 # .vscode/

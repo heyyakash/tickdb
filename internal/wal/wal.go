@@ -5,23 +5,60 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	ingestpb "github.com/heyyakash/tickdb/proto/gen/ingest"
 )
 
 type WAL struct {
 	mu   sync.Mutex
+	path string
 	file *os.File
 }
 
 func New(path string) (*WAL, error) {
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	cwd, _ := os.Getwd()
+	walPath := filepath.Join(cwd, "wal")
+
+	if err := os.MkdirAll(walPath, 0755); err != nil {
+		return nil, err
+	}
+
+	entries, err := os.ReadDir(walPath)
 	if err != nil {
 		return nil, err
 	}
-	return &WAL{file: f}, nil
+
+	for _, v := range entries {
+		if !v.IsDir() && strings.HasSuffix(v.Name(), "new.log") {
+			f, err := os.OpenFile(filepath.Join(walPath, v.Name()), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return nil, err
+			}
+			return &WAL{file: f, path: walPath}, nil
+		}
+	}
+
+	currentTimeStamp := time.Now().Unix()
+	newWalName := strconv.FormatInt(currentTimeStamp, 10)
+	f, err := os.Create(filepath.Join(walPath, newWalName+".new.log"))
+	if err != nil {
+		return nil, err
+	}
+	return &WAL{file: f, path: walPath}, nil
 }
+
+// func New(path string) (*WAL, error) {
+// 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return &WAL{file: f}, nil
+// }
 
 func (w *WAL) Append(record any) error {
 	w.mu.Lock()
@@ -41,6 +78,26 @@ func (w *WAL) Append(record any) error {
 	return w.file.Sync()
 }
 
+func (w *WAL) Flush() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	fileName := w.file.Name()
+	newFileName := strings.ReplaceAll(fileName, "new.log", "closed.log")
+	// newFilePath := filepath.Join(w.path, newFileName)
+	if err := os.Rename(fileName, newFileName); err != nil {
+		log.Fatal("Error renaming Wal file :", err)
+	}
+	w.file.Close()
+	currentTimeStamp := time.Now().Unix()
+	newWalName := strconv.FormatInt(currentTimeStamp, 10)
+	f, err := os.Create(filepath.Join(w.path, newWalName+".new.log"))
+	if err != nil {
+		log.Fatal("Couln't create new WAL")
+	}
+	w.file = f
+
+}
 func (w *WAL) Replay() []*ingestpb.Point {
 	w.mu.Lock()
 	defer w.mu.Unlock()

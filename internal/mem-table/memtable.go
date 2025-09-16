@@ -9,7 +9,7 @@ import (
 
 type MemTableService struct {
 	MemTable   map[string][]*ingestpb.Point
-	PointCount *uint16
+	PointCount uint16
 	sync.RWMutex
 }
 
@@ -29,7 +29,7 @@ func (m *MemTableService) AddToMemTable(point *ingestpb.Point) {
 	}
 	key := point.Measurement + tagString
 	m.MemTable[key] = append(m.MemTable[key], point)
-	*m.PointCount += 1
+	m.PointCount += 1
 }
 
 func (m *MemTableService) LogMemTable() {
@@ -42,5 +42,5 @@ func (m *MemTableService) LogMemTable() {
 }
 
 func (m *MemTableService) CountPoints() uint16 {
-	return *m.PointCount
+	return m.PointCount
 }

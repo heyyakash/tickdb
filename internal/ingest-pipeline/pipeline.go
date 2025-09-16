@@ -52,7 +52,10 @@ func (p *PipelineService) ProcessDataPoint() {
 				log.Printf("Couldn't process datapoint")
 			}
 			p.memtableSerivice.AddToMemTable(point)
-			//  todo : add code for flushing data to sstable
+			if p.memtableSerivice.CountPoints() >= 2000 {
+				p.sstableService.Flush()
+				p.wal.Flush()
+			}
 			p.memtableSerivice.LogMemTable()
 		case <-p.ctx.Done():
 			return

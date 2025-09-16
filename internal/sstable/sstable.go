@@ -29,7 +29,9 @@ func NewSSTableService(m *memtable.MemTableService) *SSTableService {
 }
 
 func (s *SSTableService) Flush() {
-	//structure of sstable
+	s.m.Lock()
+	defer s.m.Unlock()
+	// structure of sstable
 	// DATA BLOCK -> [len(bytes)][data json bytes]
 	// INDEX BLOCK -> [len(index)][index json bytes]
 	// FOOTER -> index offset
@@ -41,6 +43,12 @@ func (s *SSTableService) Flush() {
 	}
 
 	sstablePath := filepath.Join(cwd, "sstable", "sstable01.sst")
+
+	//create dirs if not there
+	if err = os.MkdirAll(filepath.Dir(sstablePath), 0755); err != nil {
+		log.Fatal("Couldn't create subdirectort for sstable")
+	}
+
 	// create the sstable file
 	f, err := os.Create(sstablePath)
 	if err != nil {
