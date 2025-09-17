@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"time"
 
 	memtable "github.com/heyyakash/tickdb/internal/mem-table"
 	ingestpb "github.com/heyyakash/tickdb/proto/gen/ingest"
@@ -28,7 +30,7 @@ func NewSSTableService(m *memtable.MemTableService) *SSTableService {
 	}
 }
 
-func (s *SSTableService) Flush() {
+func (s *SSTableService) Flush(walStartTime int64) {
 	s.m.Lock()
 	defer s.m.Unlock()
 	// structure of sstable
@@ -41,8 +43,10 @@ func (s *SSTableService) Flush() {
 	if err != nil {
 		log.Fatal("Error in flushing Memtable, couldn't get working directory : ", err)
 	}
-
-	sstablePath := filepath.Join(cwd, "sstable", "sstable01.sst")
+	walStartTimeString := strconv.FormatInt(walStartTime, 10)
+	currentTimeStampString := strconv.FormatInt(time.Now().Unix(), 10)
+	sstableName := walStartTimeString + "-" + currentTimeStampString + ".sst"
+	sstablePath := filepath.Join(cwd, "sstable", sstableName)
 
 	//create dirs if not there
 	if err = os.MkdirAll(filepath.Dir(sstablePath), 0755); err != nil {

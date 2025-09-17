@@ -15,9 +15,10 @@ import (
 )
 
 type WAL struct {
-	mu   sync.Mutex
-	path string
-	file *os.File
+	mu                sync.Mutex
+	path              string
+	walStartTimeStamp int64
+	file              *os.File
 }
 
 func New(path string) (*WAL, error) {
@@ -39,7 +40,12 @@ func New(path string) (*WAL, error) {
 			if err != nil {
 				return nil, err
 			}
-			return &WAL{file: f, path: walPath}, nil
+			walStartTSString := strings.Split(v.Name(), ".")[0]
+			walStartTS, err := strconv.ParseInt(walStartTSString, 10, 64)
+			if err != nil {
+				log.Fatal("Couldn't extract Wal Start Timestamp :", err)
+			}
+			return &WAL{file: f, path: walPath, walStartTimeStamp: walStartTS}, nil
 		}
 	}
 
@@ -49,7 +55,13 @@ func New(path string) (*WAL, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &WAL{file: f, path: walPath}, nil
+	return &WAL{file: f, path: walPath, walStartTimeStamp: currentTimeStamp}, nil
+}
+
+func (w *WAL) GetWalStartTime() int64 {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.walStartTimeStamp
 }
 
 // func New(path string) (*WAL, error) {

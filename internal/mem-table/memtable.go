@@ -1,7 +1,7 @@
 package memtable
 
 import (
-	"fmt"
+	"log"
 	"sync"
 
 	ingestpb "github.com/heyyakash/tickdb/proto/gen/ingest"
@@ -19,6 +19,14 @@ func NewMemTableService(memtable map[string][]*ingestpb.Point) *MemTableService 
 	}
 }
 
+func (m *MemTableService) FlushMemTable() {
+	m.RWMutex.Lock()
+	defer m.RWMutex.Unlock()
+
+	m.MemTable = make(map[string][]*ingestpb.Point)
+	m.PointCount = 0
+}
+
 func (m *MemTableService) AddToMemTable(point *ingestpb.Point) {
 	m.RWMutex.Lock()
 	defer m.RWMutex.Unlock()
@@ -29,6 +37,8 @@ func (m *MemTableService) AddToMemTable(point *ingestpb.Point) {
 	}
 	key := point.Measurement + tagString
 	m.MemTable[key] = append(m.MemTable[key], point)
+	// log.Print("New Memtable\n")
+	// m.LogMemTable()
 	m.PointCount += 1
 }
 
@@ -37,7 +47,7 @@ func (m *MemTableService) LogMemTable() {
 	defer m.RWMutex.Unlock()
 
 	for k, v := range m.MemTable {
-		fmt.Println(k, v)
+		log.Println(k, v)
 	}
 }
 
