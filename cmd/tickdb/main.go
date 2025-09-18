@@ -94,10 +94,26 @@ func main() {
 		Handler: r.Handler(),
 	}
 
-	//start httpServer goroutine
+	//start ingest httpServer goroutine
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Could'nt start rest api server : %v", err.Error())
+		}
+	}()
+
+	// setup second http server for querying
+	r2 := gin.Default()
+	queryRestService := server.NewQueryServer(memtableService, sstableService)
+	queryRestService.SetupHandlers(r2)
+
+	queryHTTPServer := &http.Server{
+		Addr:    ":8021",
+		Handler: r2.Handler(),
+	}
+
+	go func() {
+		if err := queryHTTPServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Couldn't start query rest server : %v", err.Error())
 		}
 	}()
 
@@ -108,6 +124,12 @@ func main() {
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
+
+	//Stopping Query Server
+	log.Println("Stopping Query REST Server...")
+	if err := queryHTTPServer.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("Error in stopping the Qyery rest api server : %v", err.Error())
+	}
 
 	//Stopping rest api server
 	log.Println("Stopping rest api server...")
